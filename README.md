@@ -44,3 +44,14 @@ A fully decentralized note-taking application built on the **Solana blockchain**
 ```bash
 git clone git remote add origin https://github.com/pardhan03/note-fi.git
 cd note-fi
+
+instaastro@instaastro-ThinkPad-E14:~/Documents/Rust/note-fi$ anchor deploy
+Deploying cluster: https://api.devnet.solana.com
+Upgrade authority: /home/instaastro/Documents/Rust/note-fi/deployer.json
+Deploying program "note_fi"...
+Program path: /home/instaastro/Documents/Rust/note-fi/target/deploy/note_fi.so...
+Program Id: FLWfWd44uNN8ZUEw2Xw9e7xt5NmAW7o7S33C2KAMUZE7
+
+Signature: 3bQVhFaQhBEtiUtUjYnRiyvuPa4SfAE7uHRzUv831KK3nbV34URzNCYHA2KZzNjj9boNKmwnKcZXBNFbPDtRyvVc
+
+Deploy success
