@@ -1,115 +1,326 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+"use client"
+import React, { useState } from "react";
+import { PublicKey } from "@solana/web3.js";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { AnchorProvider, Program } from "@project-serum/anchor";
+const PROGRAM_ID =  new PublicKey("EGTLKvCHNE2MEJSSM1iYbZXirc1EjrT471qGJbaBm7jc");
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const IDL = {
+  "address": "FLWfWd44uNN8ZUEw2Xw9e7xt5NmAW7o7S33C2KAMUZE7",
+  "metadata": {
+    "name": "note_fi",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_note",
+      "discriminator": [
+        103,
+        2,
+        208,
+        242,
+        86,
+        156,
+        151,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "note",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "arg",
+                "path": "title"
+              }
+            ]
+          }
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "delete_note",
+      "discriminator": [
+        182,
+        211,
+        115,
+        229,
+        163,
+        88,
+        108,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "note",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "account",
+                "path": "note.title",
+                "account": "Note"
+              }
+            ]
+          }
+        },
+        {
+          "name": "author",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_note",
+      "discriminator": [
+        103,
+        129,
+        251,
+        34,
+        33,
+        154,
+        210,
+        148
+      ],
+      "accounts": [
+        {
+          "name": "note",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "author"
+              },
+              {
+                "kind": "account",
+                "path": "note.title",
+                "account": "Note"
+              }
+            ]
+          }
+        },
+        {
+          "name": "author",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Note",
+      "discriminator": [
+        203,
+        75,
+        252,
+        196,
+        81,
+        210,
+        122,
+        126
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "TitleTooLong",
+      "msg": "Title can not be larger then 100 chars"
+    },
+    {
+      "code": 6001,
+      "name": "ContentTooLong",
+      "msg": "Content can not be larger then 100 chars"
+    },
+    {
+      "code": 6002,
+      "name": "TitleEmpty",
+      "msg": "Title can not be empty"
+    },
+    {
+      "code": 6003,
+      "name": "ContentEmpty",
+      "msg": "Content can not be empty"
+    },
+    {
+      "code": 6004,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    }
+  ],
+  "types": [
+    {
+      "name": "Note",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "content",
+            "type": "string"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_updated",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}
 
 export default function Home() {
+
+  const[notes, setNotes] = useState<any>([]);
+  const[loading, setLoading] = useState<boolean>(false);
+  const[message, setMessage] = useState("");
+  const[title, setTitle] = useState("");
+  const[content, setContent] = useState("");
+
+  const { connection } = useConnection();
+  const wallet = useWallet();
+
+  const getProgram = () => {
+    if(!wallet.publicKey || !wallet.signTransaction) {
+      return null;
+    }
+
+    const provider =  new AnchorProvider(connection, wallet as any, {});
+    return new Program(IDL as any, PROGRAM_ID, provider);
+  };
+
+  const loadNotes = () => {
+    if(!wallet.publicKey) {
+      return;
+    };
+    setLoading(true);
+    try {
+      const program = getProgram();
+      const notes = program?.account?.note?.all([
+        {
+          memcmp: {
+            offset: 8,
+            bytes: wallet.publicKey.toBase58(),
+          }
+        }
+      ]);
+      setNotes(notes);
+      setMessage("");
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      setMessage("Error loading the notes");
+      console.log(error);
+    }
+  }
+
+  const createNote = async () => {
+    if(!title.trim() || !content.trim()){
+      setMessage("Please fill the title and content!");
+      return;
+    }
+
+    if(title.length > 100) {
+      setMessage("Title too long (MAX length: 100 chars");
+      return;
+    }
+
+    if(title.length > 100) {
+      setMessage("Content too long (MAX length: 100 chars");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const program = getProgram();
+      if(!program) {
+        return;
+      }
+    } catch (error) {
+      
+    }
+  }
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div>
+      <p>Hello world program!</p>
     </div>
   );
 }
